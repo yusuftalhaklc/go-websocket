@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-Time Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #chat-container {
+            width: 400px;
+            height: 700px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        #chat {
+            flex: 1;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            width: 100%;
+            height: 200px;
+            overflow-y: scroll;
+            overflow-x: auto;
+        }
+
+        input[type="text"] {
+            padding: 0px;
+            height: 30px;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        button {
+            padding: 5px 10px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <h1>Real-Time Chat</h1>
+        <div id="chat"></div>
+        <input type="text" id="userInput" placeholder="Kullanıcı adınızı girin...">
+        <button onclick="setUsername()">Katıl</button>
+        <hr>
+        <input type="text" id="messageInput" placeholder="Mesajınızı yazın..." disabled>
+        <button onclick="sendMessage()" disabled>Gönder</button>
+    </div>
+
+    <script>
+        var username;
+        const chatDiv = document.getElementById('chat');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.querySelector('button[onclick="sendMessage()"]');
+
+        // Mesajları geçici olarak saklamak için bir dizi oluşturuyoruz.
+        const messages = [];
+
+        // WebSocket bağlantısını oluşturuyoruz.
+        const socket = new WebSocket('ws://192.168.1.117:3000/ws');
+
+        // Soket bağlandığında gerçekleşecek olayı tanımlıyoruz.
+        socket.onopen = () => {
+            console.log('WebSocket bağlandı.');
+            // Sayfa yenilendiğinde veya kapatıldığında mesajlar yükleniyor.
+            messages.forEach(message => {
+                appendMessageToChat(message);
+            });
+        };
+
+        // Soket üzerinden mesaj alındığında gerçekleşecek olayı tanımlıyoruz.
+        socket.onmessage = event => {
+            const message = JSON.parse(event.data);
+            appendMessageToChat(message);
+            // Gelen mesajları geçici diziye ekliyoruz.
+            messages.push(message);
+        };
+
+        // Hata durumunda gerçekleşecek olayı tanımlıyoruz.
+        socket.onerror = event => {
+            console.error('WebSocket hatası:', event);
+        };
+
+        // Kullanıcı adını ayarlayan JavaScript fonksiyonu.
+        function setUsername() {
+            const userInput = document.getElementById('userInput');
+            const joinButton = document.querySelector('button[onclick="setUsername()"]');
+
+            // Boş kullanıcı adı girişi engellenir.
+            if (userInput.value.trim() !== '') {
+                username = userInput.value;
+                userInput.disabled = true;
+                joinButton.disabled = true;
+
+                // Mesaj gönderme alanını aktifleştiririz.
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+            }
+        }
+
+        // Mesaj göndermek için JavaScript fonksiyonu.
+        function sendMessage() {
+            const message = messageInput.value;
+
+            // Boş mesajları göndermiyoruz.
+            if (message.trim() !== '') {
+                const data = {
+                    sender: username,
+                    content: message
+                };
+
+                // Mesajı JSON formatına çevirip WebSocket üzerinden gönderiyoruz.
+                socket.send(JSON.stringify(data));
+
+                // Gönderildikten sonra input alanını temizliyoruz.
+                messageInput.value = '';
+            }
+        }
+
+        // Mesajı sohbet kutusuna ekleyen yardımcı fonksiyon.
+        function appendMessageToChat(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = `<strong>${message.sender}</strong>: ${message.content}`;
+            chatDiv.appendChild(messageDiv);
+            // Sohbet kutusuna eklenen yeni mesajları otomatik olarak aşağıya kaydırıyoruz.
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
